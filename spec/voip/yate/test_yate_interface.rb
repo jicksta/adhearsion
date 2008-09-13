@@ -10,6 +10,12 @@ context "The protocol parser" do
   end
 end
 
+context "Handling a new call" do
+  test 'it should instantiate a new YateCall'
+  test 'it should start a new Thread'
+  test "#handle_thread"
+end
+
 context "Sending commands" do
   test "installing a simple 'test' handler with priority" do
     expected = "%%>install:50:test\n"
