@@ -80,13 +80,13 @@ module Adhearsion
       end
       
       def handle(call)
-        if call.failed_call?
+        if call.failed_meta_call?
           environment = ExecutionEnvironment.new(call)
           call.extract_failed_reason_from(environment)
           raise FailedExtensionCallException.new(environment)
         end
         
-        if call.hungup_call?
+        if call.hungup_meta_call?
           raise HungupExtensionCallException.new(ExecutionEnvironment.new(call))
         end
         

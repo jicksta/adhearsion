@@ -1,4 +1,6 @@
 require 'gserver'
+require 'adhearsion/voip/asterisk/asterisk_call'
+
 module Adhearsion
   module VoIP
     module Asterisk
@@ -13,7 +15,7 @@ module Adhearsion
             
             def serve(io)
               Hooks::BeforeCall.trigger_hooks
-          	  call = Adhearsion.receive_call_from(io)
+          	  call = AsteriskCall.receive_from(io)
           	  ahn_log.agi "Handling call with variables #{call.variables.inspect}"
           	  
           	  return DialPlan::ConfirmationManager.handle(call) if DialPlan::ConfirmationManager.confirmation_call?(call)
@@ -48,7 +50,7 @@ module Adhearsion
               ahn_log.agi.error e.inspect
               ahn_log.agi.error e.backtrace.map { |s| " " * 5 + s }.join("\n")
             ensure
-              Adhearsion.active_calls.remove_inactive_call call
+              Adhearsion.active_calls.remove_inactive_call call if call
             end
             
           end

@@ -15,7 +15,7 @@ context "Dialplan::Manager handling" do
     mock_dial_plan_lookup_for_context_name
     flexmock(Adhearsion::DialPlan::Loader).should_receive(:load_dial_plan).and_return{flexmock("loaded contexts", :contexts => nil)}
     @manager = Adhearsion::DialPlan::Manager.new
-    @call    = new_call_for_context context_name
+    @call    = new_asterisk_call_for_context context_name
     
     # Sanity check context name being set
     call.context.should.equal context_name
@@ -82,13 +82,13 @@ context "DialPlan::Manager's handling a failed call" do
   
   test 'should check if the call has failed and then instruct it to extract the reason from the environment' do
     flexmock(Adhearsion::DialPlan::ExecutionEnvironment).new_instances.should_receive(:variable).with("REASON").once.and_return '3'
-    call = Adhearsion::Call.new(nil, {'extension' => "failed"})
-    call.should.be.failed_call
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {'extension' => "failed"})
+    call.should.be.failed_meta_call
     flexmock(Adhearsion::DialPlan).should_receive(:new).once.and_return flexmock("bogus DialPlan which should never be used")
     begin
       Adhearsion::DialPlan::Manager.handle(call)
     rescue Adhearsion::FailedExtensionCallException => error
-      error.call.failed_reason.should == Adhearsion::Call::ASTERISK_FRAME_STATES[3]
+      error.call.failed_reason.should == Adhearsion::VoIP::Asterisk::AsteriskCall::ASTERISK_FRAME_STATES[3]
     end
   end
 end
@@ -103,28 +103,28 @@ context "Call tagging" do
   
   test 'tagging a call with a single Symbol' do
     the_following_code {
-      call = new_call_for_context "roflcopter"
+      call = new_asterisk_call_for_context "roflcopter"
       call.tag :moderator
     }.should.not.raise
   end
   
   test 'tagging a call with multiple Symbols' do
     the_following_code {
-      call = new_call_for_context "roflcopter"
+      call = new_asterisk_call_for_context "roflcopter"
       call.tag :moderator
       call.tag :female
     }.should.not.raise
   end
   
   test 'Call#tagged_with? with one tag' do
-    call = new_call_for_context "roflcopter"
+    call = new_asterisk_call_for_context "roflcopter"
     call.tag :guest
     call.tagged_with?(:guest).should.equal true
     call.tagged_with?(:authorized).should.equal false
   end
   
   test "Call#remove_tag" do
-    call = new_call_for_context "roflcopter"
+    call = new_asterisk_call_for_context "roflcopter"
     call.tag :moderator
     call.tag :female
     call.remove_tag :female
@@ -133,7 +133,7 @@ context "Call tagging" do
   end
   
   test 'Call#tagged_with? with many tags' do
-    call = new_call_for_context "roflcopter"
+    call = new_asterisk_call_for_context "roflcopter"
     call.tag :customer
     call.tag :authorized
     call.tagged_with?(:customer).should.equal true
@@ -144,7 +144,7 @@ context "Call tagging" do
     bad_objects = ["moderator", 123, Object.new, 888.88, nil, true, false, StringIO.new]
     bad_objects.each do |bad_object|
       the_following_code {
-        new_call_for_context("roflcopter").tag bad_object
+        new_asterisk_call_for_context("roflcopter").tag bad_object
       }.should.raise ArgumentError
     end
   end
@@ -152,7 +152,7 @@ context "Call tagging" do
   test "finding calls by a tag" do
     Adhearsion.active_calls.clear!
     
-    calls = Array.new(5) { new_call_for_context "roflcopter" }
+    calls = Array.new(5) { new_asterisk_call_for_context "roflcopter" }
     calls.each { |call| Adhearsion.active_calls << call }
     
     tagged_call = calls.last
@@ -168,8 +168,8 @@ context "DialPlan::Manager's handling a hungup call" do
   include DialplanTestingHelper
   
   test 'should check if the call was a hangup meta-AGI call and then raise a HangupExtensionCallException' do
-    call = Adhearsion::Call.new(nil, {'extension' => "h"})
-    call.should.be.hungup_call
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {'extension' => "h"})
+    call.should.be.hungup_meta_call
     flexmock(Adhearsion::DialPlan).should_receive(:new).once.and_return flexmock("bogus DialPlan which should never be used")
     the_following_code {
       Adhearsion::DialPlan::Manager.handle(call)
@@ -255,7 +255,7 @@ context "The inbox-related dialplan methods" do
   include DialplanTestingHelper
   
   test "with_next_message should execute its block with the message from the inbox" do
-    mock_call = new_call_for_context :entrance
+    mock_call = new_asterisk_call_for_context :entrance
     [:one, :two, :three].each { |message| mock_call.inbox << message }
     
     dialplan = %{ entrance {  with_next_message { |message| throw message } } }
@@ -264,13 +264,13 @@ context "The inbox-related dialplan methods" do
 
   
   test "messages_waiting? should return false if the inbox is empty" do
-    mock_call = new_call_for_context :entrance
+    mock_call = new_asterisk_call_for_context :entrance
     dialplan = %{ entrance { throw messages_waiting? ? :yes : :no } }
     executing_dialplan(:entrance => dialplan, :call => mock_call).should.throw :no
   end
   
   test "messages_waiting? should return false if the inbox is not empty" do
-    mock_call = new_call_for_context :entrance
+    mock_call = new_asterisk_call_for_context :entrance
     mock_call.inbox << Object.new
     dialplan = %{ entrance { throw messages_waiting? ? :yes : :no } }
     executing_dialplan(:entrance => dialplan, :call => mock_call).should.throw :yes
@@ -286,7 +286,7 @@ context "ExecutionEnvironemnt" do
 
   before do
     variables = { :context => "zomgzlols", :caller_id => "Ponce de Leon" }
-    @call = Adhearsion::Call.new(nil, variables)
+    @call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, variables)
     @entry_point = lambda {}
   end
   
@@ -298,7 +298,7 @@ context "ExecutionEnvironemnt" do
   
   test "An executed context should raise a NameError error when a missing constant is referenced" do
     the_following_code do
-      call = new_call_for_context :context_with_missing_constant
+      call = new_asterisk_call_for_context :context_with_missing_constant
       mock_dialplan_with "context_with_missing_constant { ThisConstantDoesntExist }"
       manager = new_manager_with_entry_points_loaded_from_dialplan_contexts
       manager.handle call
@@ -315,7 +315,7 @@ context "ExecutionEnvironemnt" do
   end
   
   test "should define accessors for other contexts in the dialplan" do
-    call = new_call_for_context :am_not_for_kokoa!
+    call = new_asterisk_call_for_context :am_not_for_kokoa!
     bogus_dialplan = <<-DIALPLAN
       am_not_for_kokoa! {}
       icanhascheezburger? {}
@@ -426,7 +426,7 @@ module DialplanTestingHelper
     call         = options.delete(:call)
     context_name = options.keys.first
     dialplan     = options[context_name]
-    call       ||= new_call_for_context context_name
+    call       ||= new_asterisk_call_for_context context_name
     
     mock_dialplan_with dialplan
     lambda do
@@ -434,8 +434,8 @@ module DialplanTestingHelper
     end
   end
   
-  def new_call_for_context(context)
-    Adhearsion::Call.new(StringIO.new, :context => context)
+  def new_asterisk_call_for_context(context)
+    Adhearsion::VoIP::Asterisk::AsteriskCall.new(StringIO.new, :context => context)
   end
 end
 

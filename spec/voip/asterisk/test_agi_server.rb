@@ -17,16 +17,17 @@ context "The AGI server's serve() method" do
     call_mock = flexmock "A Call mock that's returned by Adhearsion#receive_call_from", :variable => {}
     flexstub(server_class).should_receive(:ahn_log)
     the_following_code {
-      flexmock(Adhearsion).should_receive(:receive_call_from).once.with(io_mock).and_throw :created_call!
+      mock_receiving_asterisk_calls_to_throw(io_mock, :created_call!)
       server.serve(io_mock)
     }.should.throw :created_call!
   end
   
   test 'should hand the call off to a new Manager if the request is agi://IP_ADDRESS_HERE' do
     stub_before_call_hooks!
-    call_mock = flexmock 'A new mock call that will be passed to the manager', :variables => {}
+    call_mock = flexmock 'A new mock call that will be passed to the manager', :variables => {},
+        :unique_identifier => rand(1_000)
     
-    flexmock(Adhearsion).should_receive(:receive_call_from).once.and_return call_mock
+    mock_receiving_asterisk_calls_with call_mock
     manager_mock = flexmock 'a mock dialplan manager'
     manager_mock.should_receive(:handle).once.with(call_mock)
     flexmock(Adhearsion::DialPlan::Manager).should_receive(:new).once.and_return manager_mock
@@ -35,11 +36,11 @@ context "The AGI server's serve() method" do
   
   test 'should hand off a call to a ConfirmationManager if the request begins with confirm!' do
     confirm_options = Adhearsion::DialPlan::ConfirmationManager.encode_hash_for_dial_macro_argument :timeout => 20, :key => "#"
-    call_mock = flexmock "a call that has network_script as a variable", :variables => {:network_script => "confirm!#{confirm_options[/^M\(\^?(.+)\)$/,1]}"}
+    call_mock = flexmock "a call that has network_script as a variable", :variables => {:network_script => "confirm!#{confirm_options[/^M\(\^?(.+)\)$/,1]}"}, :unique_identifier => rand(1_000)
     manager_mock = flexmock 'a mock ConfirmationManager'
     
     the_following_code {
-      flexstub(Adhearsion).should_receive(:receive_call_from).once.and_return(call_mock)
+      mock_receiving_asterisk_calls_with call_mock
       flexmock(Adhearsion::DialPlan::ConfirmationManager).should_receive(:confirmation_call?).once.with(call_mock).and_return true
       flexmock(Adhearsion::DialPlan::ConfirmationManager).should_receive(:handle).once.with(call_mock).and_throw :handled_call!
       server.serve(nil)
@@ -54,11 +55,12 @@ context "The AGI server's serve() method" do
   end
   
   test 'should execute the OnHungupCall hooks when a HungupExtensionCallException is raised' do
-    call_mock = flexmock 'a bogus call', :hungup_call? => true, :variables => {:extension => "h"}
+    call_mock = flexmock 'a bogus call', :hungup_meta_call? => true, :variables => {:extension => "h"},
+        :unique_identifier => rand(1_000)
     mock_env  = flexmock "A mock execution environment which gets passed along in the HungupExtensionCallException"
     
     stub_confirmation_manager!
-    flexstub(Adhearsion).should_receive(:receive_call_from).once.and_return(call_mock)
+    mock_receiving_asterisk_calls_with call_mock
     flexmock(Adhearsion::DialPlan::Manager).should_receive(:handle).once.and_raise Adhearsion::HungupExtensionCallException.new(mock_env)
     flexmock(Adhearsion::Hooks::OnHungupCall).should_receive(:trigger_hooks).once.with(mock_env).and_throw :hungup_call
     
@@ -66,12 +68,13 @@ context "The AGI server's serve() method" do
   end
   
   test 'should execute the OnFailedCall hooks when a FailedExtensionCallException is raised' do
-    call_mock = flexmock 'a bogus call', :failed_call? => true, :variables => {:extension => "failed"}
+    call_mock = flexmock 'a bogus call', :failed_meta_call? => true,
+        :variables => {:extension => "failed"}, :unique_identifier => rand(1_000)
     mock_env  = flexmock "A mock execution environment which gets passed along in the HungupExtensionCallException", :failed_reason => "does not matter" 
     
     server = Adhearsion::VoIP::Asterisk::AGI::Server::RubyServer.new :port, :host
     
-    flexmock(Adhearsion).should_receive(:receive_call_from).once.and_return(call_mock)
+    mock_receiving_asterisk_calls_with call_mock
     flexmock(Adhearsion::DialPlan::Manager).should_receive(:handle).once.and_raise Adhearsion::FailedExtensionCallException.new(mock_env)
     flexmock(Adhearsion::Hooks::OnFailedCall).should_receive(:trigger_hooks).once.with(mock_env).and_throw :failed_call
     the_following_code { server.serve nil }.should.throw :failed_call
@@ -85,25 +88,25 @@ context "Active Calls" do
   
   before do
     @mock_io      = StringIO.new
-    @typical_call = Adhearsion::Call.new(@mock_io, typical_call_variables_hash)
+    @typical_call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(@mock_io, typical_call_variables_hash)
   end
   
   after do
     Adhearsion::active_calls.clear!
   end
   
-  test 'A Call object can be instantiated with a hash of attributes' do
+  test 'An AsteriskCall object can be instantiated with a hash of attributes' do
     the_following_code {
-      Adhearsion::Call.new(@mock_io, {})
+      Adhearsion::VoIP::Asterisk::AsteriskCall.new(@mock_io, {})
     }.should.not.raise
   end
   
   test 'Attributes passed into initialization of call object are accessible as attributes on the object' do
-    Adhearsion::Call.new(@mock_io, {:channel => typical_call_variables_hash[:channel]}).channel.should == typical_call_variables_hash[:channel]
+    Adhearsion::VoIP::Asterisk::AsteriskCall.new(@mock_io, {:channel => typical_call_variables_hash[:channel]}).channel.should == typical_call_variables_hash[:channel]
   end
   
   test 'Attributes passed into initialization of call object are accessible in the variables() Hash' do
-    Adhearsion::Call.new(@mock_io, typical_call_variables_hash).variables.should.equal typical_call_variables_hash
+    Adhearsion::VoIP::Asterisk::AsteriskCall.new(@mock_io, typical_call_variables_hash).variables.should.equal typical_call_variables_hash
   end
   
   test 'Can add a call to the active calls list' do
@@ -118,7 +121,7 @@ context "Active Calls" do
     
     size_before = Adhearsion.active_calls.size
     
-    call = Adhearsion.receive_call_from mock_io
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.receive_from mock_io
     Adhearsion.active_calls.size.should.be > size_before
     call.hangup!
     Adhearsion.active_calls.size.should == size_before
@@ -130,55 +133,55 @@ context "Active Calls" do
   end
   
   test 'A call can store the IO associated with the PBX/switch connection' do
-    Adhearsion::Call.new(@mock_io, {}).should.respond_to(:io)
+    Adhearsion::VoIP::Asterisk::AsteriskCall.new(@mock_io, {}).should.respond_to(:io)
   end
   
   test 'A call can be instantiated given a PBX/switch IO' do
-    call = Adhearsion::Call.receive_from(typical_call_variable_io)
-    call.should.be.kind_of(Adhearsion::Call)
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.receive_from(typical_call_variable_io)
+    call.should.be.kind_of(Adhearsion::VoIP::Asterisk::AsteriskCall)
     call.channel.should == typical_call_variables_hash[:channel]
   end
   
   test 'A call with an extension of "t" raises a UselessCallException' do
     the_following_code {
-      Adhearsion::Call.new(@mock_io, typical_call_variables_hash.merge(:extension => 't'))
+      Adhearsion::VoIP::Asterisk::AsteriskCall.new(@mock_io, typical_call_variables_hash.merge(:extension => 't'))
     }.should.raise(Adhearsion::UselessCallException)
   end
   
   test 'Can create a call and add it via a top-level method on the Adhearsion module' do
     assert !Adhearsion.active_calls.any?
-    call = Adhearsion.receive_call_from(typical_call_variable_io)
-    call.should.be.kind_of(Adhearsion::Call)
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.receive_from(typical_call_variable_io)
+    call.should.be.kind_of(Adhearsion::VoIP::Asterisk::AsteriskCall)
     Adhearsion.active_calls.size.should == 1
   end
   
-  test 'A call can identify its originating voip platform' do
-    call = Adhearsion::receive_call_from(typical_call_variable_io)
+  test "An AsteriskCall's originating_voip_platform is :asterisk" do
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.receive_from(typical_call_variable_io)
     call.originating_voip_platform.should.equal(:asterisk)
   end
   
 end
 
-context 'A new Call object' do
+context 'A new AsteriskCall object' do
   
   include CallVariableTestHelper
   
   test "it should have an @inbox object that's a synchronized Queue" do
-    new_call = Adhearsion::Call.new(nil, {})
+    new_call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {})
     new_call.inbox.should.be.kind_of Queue
     new_call.should.respond_to :<<
   end
   
   test 'the unique_identifier() method should return the :channel variable for :asterisk calls' do
     variables = typical_call_variables_hash
-    new_call = Adhearsion::Call.new(nil, typical_call_variables_hash)
+    new_call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, typical_call_variables_hash)
     flexmock(new_call).should_receive(:originating_voip_platform).and_return :asterisk
     new_call.unique_identifier.should == variables[:channel]
   end
   
   test "Call#define_singleton_accessor_with_pair should define a singleton method, not a class method" do
-    control    = Adhearsion::Call.new(nil, {})
-    experiment = Adhearsion::Call.new(nil, {})
+    control    = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {})
+    experiment = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {})
     
     experiment.send(:define_singleton_accessor_with_pair, "ohai", 123)
     experiment.should.respond_to "ohai"
@@ -194,7 +197,7 @@ context 'the Calls collection' do
   test 'the #<< method should add a Call to the Hash with its unique_id' do
     id = rand
     collection = Adhearsion::Calls.new
-    call = Adhearsion::Call.new(nil, {})
+    call = Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {})
     flexmock(call).should_receive(:unique_identifier).and_return id
     collection << call
     hash = collection.instance_variable_get("@calls")
@@ -205,7 +208,7 @@ context 'the Calls collection' do
   test '#size should return the size of the Hash' do
     collection = Adhearsion::Calls.new
     collection.size.should.equal 0
-    collection << Adhearsion::Call.new(nil, {})
+    collection << Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {})
     collection.size.should.equal 1
   end
   
@@ -214,7 +217,7 @@ context 'the Calls collection' do
     
     number_of_calls = 10
     unique_ids = Array.new(number_of_calls) { rand }
-    calls = unique_ids.map { |id| Adhearsion::Call.new(nil, {:uniqueid => id}) }
+    calls = unique_ids.map { |id| Adhearsion::VoIP::Asterisk::AsteriskCall.new(nil, {:uniqueid => id}) }
     calls.each { |call| collection << call }
     
     deleted_call = calls[number_of_calls / 2]
@@ -269,7 +272,7 @@ context 'Call variable parsing with data that is treated specially' do
   test "value of 'yes' converts to true"
   test "value of 'unknown' converts to nil"
   test 'separate_line_into_key_value_pair parses values with spaces in them' do
-    key, value = Adhearsion::Call::Variables::Parser.separate_line_into_key_value_pair("foo: My Name")
+    key, value = Adhearsion::VoIP::Asterisk::AsteriskCall::Variables::Parser.separate_line_into_key_value_pair("foo: My Name")
     value.should == 'My Name'
   end
 end
@@ -280,7 +283,7 @@ context 'Typical call variable line parsing with a typical line that is not trea
   
   setup do
     @line   = 'agi_channel: SIP/marcel-b58046e0'
-    @key, @value = Adhearsion::Call::Variables::Parser.separate_line_into_key_value_pair line
+    @key, @value = Adhearsion::VoIP::Asterisk::AsteriskCall::Variables::Parser.separate_line_into_key_value_pair line
   end
   
   test "raw name is extracted correctly" do
@@ -298,7 +301,7 @@ context 'Call variable line parsing with a line that is treated specially' do
   
   setup do
     @line   = 'agi_request: agi://10.0.0.152'
-    @key, @value = Adhearsion::Call::Variables::Parser.separate_line_into_key_value_pair line
+    @key, @value = Adhearsion::VoIP::Asterisk::AsteriskCall::Variables::Parser.separate_line_into_key_value_pair line
   end
   
   test "splits out name and value correctly even if the value contains a semicolon (i.e. the same character that is used as the name/value separators)" do
@@ -315,7 +318,7 @@ context "Extracting the query from the request URI" do
   setup do
     # We don't want this Call::Variables::Parser to call parse because we only care about handling the request
     # variable which we mock here.
-    @parser = Adhearsion::Call::Variables::Parser.new(StringIO.new('This argument does not matter'))
+    @parser = Adhearsion::VoIP::Asterisk::AsteriskCall::Variables::Parser.new(StringIO.new('This argument does not matter'))
   end
   
   test "an empty hash is returned if there is no query string" do
@@ -339,11 +342,11 @@ end
 BEGIN {
   module CallVariableTestHelper
     def parsed_call_variables_from(io)
-      Adhearsion::Call::Variables::Parser.parse(io).variables
+      Adhearsion::VoIP::Asterisk::AsteriskCall::Variables::Parser.parse(io).variables
     end
   
     def coerce_call_variables(variables)
-      Adhearsion::Call::Variables::Parser.coerce_variables(variables)
+      Adhearsion::VoIP::Asterisk::AsteriskCall::Variables::Parser.coerce_variables(variables)
     end
     
     def merged_hash_with_call_variables(new_hash)
@@ -444,6 +447,15 @@ agi_accountcode:
   module AgiServerTestHelper
     def stub_before_call_hooks!
       flexstub(Adhearsion::Hooks::BeforeCall).should_receive :trigger_hooks
+    end
+    
+    def mock_receiving_asterisk_calls_to_throw(io, symbol)
+      flexmock(Adhearsion::VoIP::Asterisk::AsteriskCall).should_receive(:receive_from).once.
+          with(io).and_throw symbol
+    end
+
+    def mock_receiving_asterisk_calls_with(call)
+      flexmock(Adhearsion::VoIP::Asterisk::AsteriskCall).should_receive(:receive_from).and_return call
     end
     
     def stub_confirmation_manager!
