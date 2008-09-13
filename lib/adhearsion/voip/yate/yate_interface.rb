@@ -15,7 +15,7 @@ require 'adhearsion/voip/yate/'
 # - How difficult is it to talk to a Digium PRI card? Is that stack 100% stable? Examples online?
 # - Can Yate be compiled on OSX?
 # - Some of the example stuff (e..g the PHP lib) are broken on the Yate website.
-
+# - Given Yate's architecture, what are the limitations you've found? Are there any features you realized you couldn't implement? Be frank.
 module Adhearsion
   module VoIP
     module Yate
