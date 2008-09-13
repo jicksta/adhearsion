@@ -137,12 +137,14 @@ module Adhearsion
       require 'adhearsion/initializer/asterisk.rb'
       require 'adhearsion/initializer/drb.rb'
       require 'adhearsion/initializer/rails.rb'
+      require 'adhearsion/initializer/yate.rb'
       # require 'adhearsion/initializer/freeswitch.rb'
       
       DatabaseInitializer.start if AHN_CONFIG.database_enabled?
       AsteriskInitializer.start if AHN_CONFIG.asterisk_enabled?
       DrbInitializer.start      if AHN_CONFIG.drb_enabled?
       RailsInitializer.start    if AHN_CONFIG.rails_enabled?
+      YateInitalizer.start      if AHN_CONFIG.yate_enabled?
       # FreeswitchInitializer.start if AHN_CONFIG.freeswitch_enabled?
     end
     

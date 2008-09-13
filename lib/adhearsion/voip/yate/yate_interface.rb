@@ -14,7 +14,7 @@ require 'adhearsion/voip/yate/'
 # - I don't understand which messages need to be send to do common things, e.g. dial(). Ar there other Yate abstractions I can look at?
 # - How difficult is it to talk to a Digium PRI card? Is that stack 100% stable? Examples online?
 # - Can Yate be compiled on OSX?
-
+# - Some of the example stuff (e..g the PHP lib) are broken on the Yate website.
 
 module Adhearsion
   module VoIP
@@ -60,7 +60,6 @@ module Adhearsion
           line = parse_line line
           puts "Received #{line.inspect}"
         end
-        
         
         def spawn_call_with_parameters(params)
           @thread_group.add(Thread.new { handle_call params })
