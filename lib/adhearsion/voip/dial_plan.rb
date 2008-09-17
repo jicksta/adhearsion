@@ -158,7 +158,7 @@ module Adhearsion
         contexts.update(ContextNameCollector.build(dial_plan_as_string))
       end
       
-      class ContextNameCollector# < ::BlankSlate
+      class ContextNameCollector
         
         class << self
           

@@ -18,9 +18,8 @@ module Adhearsion
           attach_to channel
         end
         
-
         def dial
-          
+          call.execute :callto => "sip/sip:user@ip"
         end
         
         def menu

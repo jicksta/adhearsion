@@ -61,7 +61,10 @@ module Adhearsion
       end
     end
     
-    # Abstract superclass for AsteriskConfiguration and FreeSwitchConfiguration.
+    ##
+    # TODO: Get rid of this entirely. Yate doesn't adhere to this class' assumptions at all.
+    #
+    # Abstract superclass for AsteriskConfiguration and FreeSwitchConfiguration. 
     class TelephonyPlatformConfiguration < AbstractConfiguration
       attr_accessor :listening_port
       attr_accessor :listening_host
@@ -119,6 +122,18 @@ module Adhearsion
       add_configuration_for :AMI
     end
     add_configuration_for :Asterisk
+    
+    class YateConfiguration < AbstractConfiguration
+      
+      attr_accessor :host, :port
+      def initialize(overrides={})
+        raise ArgumentError, "Must supply a :host to enable_yate" unless overrides[:host]
+        raise ArgumentError, "Must supply a :port to enable_yate" unless overrides[:port]
+        super
+      end
+      
+    end
+    add_configuration_for :Yate
     
     class FreeswitchConfiguration < TelephonyPlatformConfiguration
       class << self

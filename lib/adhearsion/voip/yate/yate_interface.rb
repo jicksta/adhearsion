@@ -1,21 +1,11 @@
 require 'rubygems'
 require 'eventmachine'
-require 'adhearsion/voip/yate/'
+require 'adhearsion/voip/yate/yate_message'
+require 'adhearsion/voip/yate/yate_call'
 
-# Fragen für Diana über Yate
-# - Can I add new SIP registrations? I don't want to use ysipchan.conf
-# - Could I embed Yate within a Ruby process? That'd be kickasssss.
-# - Does it have many dependencies? 
-# - Maybe create a STOMP client in Yate? that'd be awesome too.
-# - What if there is %%% in the protocol? Can that ever happen? Are there any other things to unescape?
-# - When Yate goes off and does something, can you tell it to stop doing it? (e.g. stop playback on dtmf)
-# - What do you know about GrandCentral?
-# - Do calls have unique ids? When I get a DTMF message, how do I identify the call it came from?
-# - I don't understand which messages need to be send to do common things, e.g. dial(). Ar there other Yate abstractions I can look at?
-# - How difficult is it to talk to a Digium PRI card? Is that stack 100% stable? Examples online?
-# - Can Yate be compiled on OSX?
-# - Some of the example stuff (e..g the PHP lib) are broken on the Yate website.
-# - Given Yate's architecture, what are the limitations you've found? Are there any features you realized you couldn't implement? Be frank.
+# FRAGEN
+# Are all the fields after a certain point key/value pairs? It better be consistent.  :(
+
 module Adhearsion
   module VoIP
     module Yate
@@ -26,13 +16,6 @@ module Adhearsion
           def connect(host, port)
             EM.connect(host, port, self)
           end
-          
-          def parse_line(line)
-            line = line[3..-1].split(":").map do |field|
-              field.gsub("%Z", ":").gsub('%%', '%')
-            end
-          end
-
         end
         
         def initialize(*args)
@@ -51,22 +34,50 @@ module Adhearsion
           send_message "install"
         end
         
-        def send_message(message_name, options)
-          handler, priority = options.values_at :handler, :priority
-          send_data "%%>#{message_name}:#{priority}:#{handler}\n"
+        def send_message(destination, options)
+          action_id, priority = options.values_at :action_id, :priority
+          send_data "%%<#{action_id}:#{priority}:#{destination}\n"
         end
         
-        def receive_line(line)
-          line = parse_line line
-          puts "Received #{line.inspect}"
+        def receive_line(raw_message)
+          puts "Received #{raw_message.inspect}"
+          message = YateMessage.from_protocol_text raw_message
+          case message.origination
+            when "call.created" # Or whatever it is...
+              call = YateCall.from_protocol_text line
+              spawn_call_handler_for call
+            when 'call.destroyed'
+              call = Adhearsion.active_calls.with_tag(:yate).find message.call_id
+              call.hangup!
+            when "something_else_call_related"
+              call = Adhearsion.active_calls.with_tag(:yate).find message.call_id
+              call.handle_message message
+            else
+              # Let's return so that we don't acknowledge the message
+              return
+          end
+          acknowledge_message message
+          # respond to route command to send to an "ivr".
         end
         
-        def spawn_call_with_parameters(params)
-          @thread_group.add(Thread.new { handle_call params })
+        ##
+        # Yate's messaging systems works by having things "install" message handlers for a particular message endpoint.
+        # It can be (and often is) the case that many things register themselves for a particular message endpoint and
+        # Yate treats them with a certain priority. If a message handler decides it should not handle the message, it
+        # does not acknowledge the message. If it does want to handle it, it "acknowledges" the message immediately.
+        #
+        # @param [YateMessage] message The message which we'll acknowledge with Yate.
+        def acknowledge(message)
+          send_data message.acknowledgement
         end
         
-        def handle_call(params)
-          YateCall.new
+        def spawn_call_handler_for(call)
+          @thread_group.add(Thread.new { handle_call call })
+        end
+        
+        def handle_call(call)
+          
+          # Load dialplan
         end
         
       end

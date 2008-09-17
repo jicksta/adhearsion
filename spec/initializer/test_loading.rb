@@ -2,7 +2,6 @@ require File.dirname(__FILE__) + "/../test_helper"
 require 'adhearsion/initializer/database'
 require 'adhearsion/initializer/asterisk'
 require 'adhearsion/initializer/rails'
-require 'active_record'
 
 context "The database initializer" do
   
