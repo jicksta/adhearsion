@@ -1,3 +1,4 @@
+# %%>message:<id>:<time>:<name>:<retvalue>[:<key>=<value>...]
 module Adhearsion
   module VoIP
     module Yate

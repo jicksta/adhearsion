@@ -4,8 +4,9 @@ require 'adhearsion/voip/yate/yate_message'
 require 'adhearsion/voip/yate/yate_call'
 
 # FRAGEN
-# Are all the fields after a certain point key/value pairs? It better be consistent.  :(
-
+# - Are all the fields after a certain point key/value pairs? It better be consistent.  :(
+# - I really don't like how Yate will hang if something doesn't acknowledge a message. what if someone does kill -9 on the handling process? There could be messages not yet acknowledged and Yate itself hangs. weak sauce.
+# - Can Diana document the weaknesses in the platform? Her answer was too terse.
 module Adhearsion
   module VoIP
     module Yate
@@ -58,6 +59,9 @@ module Adhearsion
           end
           acknowledge_message message
           # respond to route command to send to an "ivr".
+        rescue => e
+          # TELL YATE TO CONTINUE WITHOUT AN ACKNOWLEDGEMENT OR SOMETHING...
+          p e, *e.backtrace
         end
         
         ##
@@ -76,7 +80,7 @@ module Adhearsion
         end
         
         def handle_call(call)
-          
+          # Since we're using yate, have it use the first context defined.
           # Load dialplan
         end
         
