@@ -151,11 +151,16 @@ module Adhearsion
                   # We have more causal events coming.
                 end
               else
-                ahn_log.ami.error "Got an unexpected event on actions socket! This may be a bug! #{message.inspect}"
+                ahn_log.ami.warn "Got an unexpected event on actions socket! This may be a bug! #{message.inspect}"
               end
               
             elsif message["ActionID"].nil?
-              # No ActionID! Release the write lock and wake up the waiter
+              if @current_immediate_response_action
+                @current_immediate_response_action.future_resource.resource = message
+                @current_immediate_response_action = nil
+              else
+                ahn_log.ami.warn "Got an unexpected immediate response on actions socket! This may be a bug! #{message.inspect}"
+              end
             else
               action_id = message["ActionID"]
               corresponding_action = data_for_message_received_with_action_id action_id
@@ -261,13 +266,8 @@ module Adhearsion
           # @return [FutureResource] Call resource() on this object if you wish to access the response (optional). Note: if the response has not come in yet, your Thread will wait until it does.
           #
           def send_action_asynchronously(action_name, headers={})
-            check_action_name action_name
-            action = ManagerInterfaceAction.new(action_name, headers)
-            if action.replies_with_action_id?
+            returning ManagerInterfaceAction.new(action_name, headers) do |action|
               @write_queue << action
-              action
-            else
-              raise NotImplementedError
             end
           end
           
@@ -366,36 +366,22 @@ module Adhearsion
         
           protected
           
-          ##
-          # This class will be removed once this AMI library fully supports all known protocol anomalies.
-          #
-          class UnsupportedActionName < ArgumentError
-            UNSUPPORTED_ACTION_NAMES = %w[
-              queues
-              iaxpeers
-            ] unless defined? UNSUPPORTED_ACTION_NAMES
-            def initialize(name)
-              super "At the moment this AMI library doesn't support the #{name.inspect} action because it causes a protocol anomaly. Support for it will be coming shortly."
-            end
-            
-          end
-          
-          def check_action_name(name)
-            name = name.to_s.downcase
-            raise UnsupportedActionName.new(name) if UnsupportedActionName::UNSUPPORTED_ACTION_NAMES.include? name
-            true
-          end
-          
           def write_loop
             loop do
               next_action = @write_queue.shift
               return :stopped if next_action.equal? :STOP!
-              register_action_with_metadata next_action
+              
+              if next_action.replies_with_action_id?
+                register_action_with_metadata next_action
+              else
+                @current_immediate_response_action
+              end
               
               ahn_log.ami.debug "Sending AMI action: #{"\n>>> " + next_action.to_s.gsub(/(\r\n)+/, "\n>>> ")}"
               @actions_connection.send_data next_action.to_s
-              # If it's "causal event" action, we must wait here until it's fully responded
-              next_action.response if next_action.has_causal_events?
+              
+              # If it's "causal event" or "immediate response" action, we must wait here until it's fully responded.
+              next_action.response if next_action.has_causal_events? || !next_action.replies_with_action_id?
             end
           rescue => e
             p e

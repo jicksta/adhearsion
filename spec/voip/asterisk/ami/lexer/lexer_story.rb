@@ -66,8 +66,8 @@ steps_for :ami_lexer do
     @lexer << "\r\n\r\n"
   end
   
-  Given "a multi-line Response:Follows body of $method_name" do |method_name|
-    multi_line_response_body = send(:follows_body_text, method_name)
+  Given "a multi-line Response:Follows body of $fixture_name" do |fixture_name|
+    multi_line_response_body = fixture_text fixture_name
 
     multi_line_response = format_newlines(<<-RESPONSE + "\r\n") % multi_line_response_body
 Response: Follows\r
@@ -80,8 +80,8 @@ ActionID: 123123\r
     @lexer << multi_line_response
   end
   
-  Given "syntactically invalid $name" do |name|
-    @lexer << send(:syntax_error_data, name)
+  Given "fixture named $name" do |name|
+    @lexer << fixture_text(name)
   end
 
   Given "$number Pong responses? with an ActionID of $action_id" do |number, action_id|
@@ -104,6 +104,10 @@ ActionID: 123123\r
     @lexer << "Response: Error\r\nMessage: #{message}\r\n\r\n"
   end
   
+  Given 'an immediate response with fixture $fixture' do |fixture|
+    @lexer << fixture_text(fixture)
+  end
+  
   Given 'an immediate response with text "$text"' do |text|
     @lexer << "#{text}\r\n\r\n"
   end
@@ -118,10 +122,6 @@ ActionID: 123123\r
   
   Given "an Authentication Required error" do
     @lexer << "Response: Error\r\nActionID: BPJeKqW2-SnVg-PyFs-vkXT-7AWVVPD0N3G7\r\nMessage: Authentication Required\r\n\r\n"
-  end
-  
-  Given "a follows packet with a colon in it" do
-    @lexer << follows_body_text("with_colon")
   end
   
   ########################################
@@ -168,11 +168,12 @@ ActionID: 123123\r
   end
     
   Then "$number_received messages? should have been received" do |number_received|
+    p @lexer.received_messages
     @lexer.received_messages.size.should equal(number_received.to_i)
   end
   
-  Then "the 'follows' body of $number messages? received should equal $method_name" do |number, method_name|
-    multi_line_response = follows_body_text method_name
+  Then "the text_body of $number messages? received should equal $fixture_name" do |number, fixture_name|
+    multi_line_response = fixture_text fixture_name
     @lexer.received_messages.should_not be_empty
     @lexer.received_messages.select do |message|
       message.text_body == multi_line_response
@@ -197,6 +198,16 @@ ActionID: 123123\r
     @lexer.ami_errors[order].should be_kind_of(Adhearsion::VoIP::Asterisk::Manager::ManagerInterfaceError)
     @lexer.ami_errors[order].message.should eql(message)
   end
+  
+  Then '$number message should be an immediate response with fixture $fixture' do |number, fixture|
+    text = fixture_text fixture
+    matching_immediate_responses = @lexer.received_messages.select do |response|
+      response.kind_of?(Adhearsion::VoIP::Asterisk::Manager::ManagerInterfaceResponse) && response.text_body == text
+    end
+    matching_immediate_responses.size.should equal(number.to_i)
+    matching_immediate_responses.first["ActionID"].should eql(nil)
+  end
+  
   
   Then '$number message should be an immediate response with text "$text"' do |number, text|
     matching_immediate_responses = @lexer.received_messages.select do |response|

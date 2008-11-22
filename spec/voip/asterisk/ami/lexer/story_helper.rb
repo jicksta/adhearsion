@@ -99,7 +99,7 @@ def random_string
   (rand(1_000_000_000_000) + 1_000_000_000).to_s
 end
 
-def follows_body_text(name)
+def fixture_text(name)
   case name
     when "ragel_description"
       "Ragel is a software development tool that allows user actions to
@@ -108,14 +108,10 @@ def follows_body_text(name)
       environment and back again."
     when "with_colon_after_first_line"
       "Host                            Username       Refresh State                Reg.Time                 \r\nlax.teliax.net:5060             jicksta            105 Registered           Tue, 11 Nov 2008 02:29:55"
-
+    when "no_iax_peers"
+      "markq        has 0 calls (max unlimited) in 'ringall' strategy (0s holdtime), W:0, C:0, A:0, SL:0.0% within 0s\r\n   No Members\r\n   No Callers\r\n\r\n"
+    when "immediate_packet_with_colon"
+      "!IJ@MHY:!&@B*!B @ ! @^! @ !@ !\r!@ ! @ !@ ! !!m, \n\\n\n\r\n"
   end
   
-end
-
-def syntax_error_data(name)
-  case name
-    when "immediate_packet_with_colon"
-      "!IJ@MHY:!&@B*!B @ ! @^! @ !@ !\r!@ ! @ !@ ! !!m, \n\\n\n"
-  end
 end

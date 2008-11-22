@@ -40,7 +40,7 @@ Story: Lexing AMI
 		When the buffer is lexed
 		
 		Then the protocol should have lexed without syntax errors
-		And the 'follows' body of 1 message received should equal ragel_description
+		And the text_body of 1 message received should equal ragel_description
 	
 	
 	Scenario: Lexing a Response:Follows section which has a colon not on the first line
@@ -52,18 +52,18 @@ Story: Lexing AMI
 
 		Then the protocol should have lexed without syntax errors
 		And 1 message should have been received
-		And the 'follows' body of 1 message received should equal with_colon_after_first_line
+		And the text_body of 1 message received should equal with_colon_after_first_line
 
 	Scenario: Lexing an immediate response with a colon in it.
 	
 		Given a new lexer
-		And an immediate response with text "markq        has 0 calls (max unlimited) in 'ringall' strategy (0s holdtime), W:0, C:0, A:0, SL:0.0% within 0s\r\n   No Members\r\n   No Callers\r\n\r\n\r\n\r\n"
+		And an immediate response with fixture no_iax_peers
 		
 		When the buffer is lexed
 		
 		Then the protocol should have lexed without syntax errors
 		And 1 message should have been received
-		And 1 message should be an immediate response with text "markq        has 0 calls (max unlimited) in 'ringall' strategy (0s holdtime), W:0, C:0, A:0, SL:0.0% within 0s\r\n   No Members\r\n   No Callers"
+		And 1 message should be an immediate response with fixture no_iax_peers
 
 	Scenario: Lexing the initial AMI header and then an "Authentication Required" error.
 	
@@ -85,7 +85,7 @@ Story: Lexing AMI
 		When the buffer is lexed
 
 		Then the protocol should have lexed without syntax errors
-		And the 'follows' body of 2 messages received should equal ragel_description
+		And the text_body of 2 messages received should equal ragel_description
 
 	Scenario: Lexing a stanza without receiving an AMI header
 
@@ -198,7 +198,7 @@ Story: Lexing AMI
 		And 1 AMI error should have been received
 		And the 1st AMI error should have the message "Missing action in request"
 		And 1 message should have been received
-	
+		
 	Scenario: Lexing an immediate response
 	
 		Given a new lexer
@@ -226,15 +226,14 @@ Story: Lexing AMI
 		And the 1st event should have the name "NewChannelEvent"
 		And the 1st event should have key "Foo" with value "Bar"
 		
-	Scenario: Lexing an immediate packet with a colon in it (syntax error)
+	Scenario: Lexing an immediate packet with a colon in it
 	
 		Given a new lexer
-		And syntactically invalid immediate_packet_with_colon
+		And fixture named immediate_packet_with_colon
 		And a stanza break
 		
 		When the buffer is lexed
 		
-		Then 0 messages should have been received
-		And the protocol should have lexed with 1 syntax error
-		And the syntax error fixture named immediate_packet_with_colon should have been encountered
-	
+		Then the protocol should have lexed without syntax errors
+		And 1 message should have been received
+		And the text_body of 1 message received should equal immediate_packet_with_colon

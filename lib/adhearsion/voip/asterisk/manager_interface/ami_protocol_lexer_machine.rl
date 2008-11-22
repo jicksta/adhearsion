@@ -10,7 +10,7 @@
 ## Note: This file is language agnostic. From this AMI parsers in many other languages can be generated.
 #########
 
-machine ami_protocol_parser_machine;
+machine ami_protocol_lexer_machine;
 
 cr = "\r";              # A carriage return. Used before (almost) every newline character.
 lf = "\n";              # Newline. Used (with cr) to separate key/value pairs and stanzas.
@@ -40,11 +40,17 @@ Follows  = Response "Follows"i crlf @init_response_follows @{ fgoto response_fol
 # For "Response: Follows"
 FollowsBody = (any* -- FollowsDelimiter) >follows_text_starts FollowsDelimiter @follows_text_stops crlf;
 
-ImmediateResponse = (any+ -- (loose_newline | ":")) >immediate_response_starts loose_newline @immediate_response_stops @{fret;};
+# This is used for simple sentences such as "No queues.\r\n"
+SimpleImmediateResponse = ((any+ -- (loose_newline | ":")) | (([^:] -- stanza_break)+  ":" any*)) >immediate_response_starts loose_newline @immediate_response_stops @{fret;};
+
+# This is used for really complex immediate responses such as the IAXPeers action.
+ComplexImmediateResponse = (rest_of_line crlf)+ >immediate_response_starts crlf @immediate_response_stops @{fret;};
+
 SyntaxError       = (any+ -- crlf) >syntax_error_starts crlf @syntax_error_stops;
 
 irregularity := |*
-  ImmediateResponse; # Performs the fret in the ImmediateResponse FSM
+  ComplexImmediateResponse;
+  SimpleImmediateResponse; # Performs the fret in the ImmediateResponse FSM
   SyntaxError       => { fret; };
 *|;
 
