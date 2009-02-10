@@ -34,7 +34,7 @@ context "a new EventSocket" do
     handler = event_socket.send(:instance_variable_get, :@handler)
     %w[receive_data disconnected connected].each do |callback|
       the_following_code {
-        handler.send callback
+        handler.send callback, nil
       }.should.throw "inside_#{callback}".to_sym
     end
   end
@@ -147,8 +147,26 @@ context "the reader_loop method" do
   
 end
 
-context "the writer_loop method" do
+context "the send_data method" do
   
+  include EventSocketTestHelper
+  
+  test "should return true if no exception is raised" do
+    mock_socket = flexmock "TCPSocket"
+    flexmock(TCPSocket).should_receive(:new).once.and_return mock_socket
+    mock_socket.should_receive(:write).once.and_return nil
+    event_socket = EventSocket.new("foo", 123, mock_handler_object)
+    event_socket.connect!
+    event_socket.send_data("Hello").should.equal(true)
+  end
+  test "should return false if an exception is raised" do
+    mock_socket = flexmock "TCPSocket"
+    flexmock(TCPSocket).should_receive(:new).once.and_return mock_socket
+    mock_socket.should_receive(:write).once.and_raise Errno::ECONNRESET
+    event_socket = EventSocket.new("foo", 123, mock_handler_object)
+    event_socket.connect!
+    event_socket.send_data("Hello").should.equal(false)
+  end
 end
 
 BEGIN {

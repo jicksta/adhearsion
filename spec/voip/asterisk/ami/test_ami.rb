@@ -325,6 +325,30 @@ context "ManagerInterface#write_loop" do
     manager.connect!
   end
   
+  it "should reconnect if an EventSocket#send_data returns false (indicating an error)" do
+    mock_event_socket = flexmock "EventSocket"
+    flexmock(EventSocket).should_receive(:new).once.and_return mock_event_socket
+    mock_event_socket.should_receive(:send_data).and_return false
+    
+    flexmock(FutureResource).new_instances.should_receive(:resource).and_return new_blank_ami_response
+    
+    mock_queue = flexmock "a mock write-Queue"
+    mock_queue.should_receive(:shift).and_return
+    mock_queue.should_receive(:<<).and_return
+    flexmock(Queue).should_receive(:new).once.and_return mock_queue
+    
+    manager = new_manager_without_events
+    flexmock(manager).should_receive(:establish_actions_connection).once
+    flexmock(manager).should_receive(:establish_actions_connection).once.and_throw :second_call!
+    flexmock(manager).should_receive(:loop).once.and_yield
+    
+    manager.connect!
+    
+    the_following_code {
+      manager.send_action "Ping"
+    }.should.throw(:second_call!)
+  end
+  
 end
 
 context "Class methods of ManagerInterface" do

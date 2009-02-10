@@ -358,10 +358,11 @@ Adhearsion will abort until you fix this. Sorry for the incovenience.
       # certainly change sizes after this method is called.
       index = 0
       until index == IMPORTANT_THREADS.size
+        thread = IMPORTANT_THREADS[index]
         begin
-          IMPORTANT_THREADS[index].join
+          thread.join
         rescue => e
-          ahn_log.error "Error after join()ing Thread #{thread.inspect}. #{e.message}"
+          ahn_log.error "Error after join()ing Thread #{thread.inspect}. #{e.message} \n" + e.backtrace * "\n"
         ensure
           index = index + 1
         end

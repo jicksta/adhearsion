@@ -105,14 +105,19 @@ class EventSocket
   # Thread-safe implementation of write.
   #
   # @param [String] data Data to write
+  # @return [true,false] Returns true if successful or false if an exception occurred.
   #
   def send_data(data)
     # Note: TCPSocket#write is intrinsically Thread-safe
     @socket.write data
-  rescue
+    true
+  rescue Exception => exception
+    puts "DRopped! #{exception}"
     connection_dropped!
+    false
   end
-    ##
+  
+  ##
   # Disconnects this EventSocket and sets the state to :stopped
   #
   def disconnect!

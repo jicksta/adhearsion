@@ -251,11 +251,7 @@ module Adhearsion
             #@write_queue << :STOP!
             raise NotImplementedError
           end
-        
-          def dynamic
-            # TODO: Return an object which responds to method_missing
-          end
-                    
+          
           ##
           # Used to directly send a new action to Asterisk. Note: NEVER supply an ActionID; these are handled internally.
           #
@@ -396,12 +392,27 @@ module Adhearsion
               register_action_with_metadata next_action
               
               ahn_log.ami.debug "Sending AMI action: #{"\n>>> " + next_action.to_s.gsub(/(\r\n)+/, "\n>>> ")}"
-              @actions_connection.send_data next_action.to_s
+              
+              begin
+                write_successful = @actions_connection.send_data next_action.to_s
+
+                if !write_successful || !@actions_connection.state.equal?(:connected)
+                  ahn_log.ami.error "Encountered an error writing a #{next_action.name} action. Trying to reconnect with #{@write_queue.size} other events waiting to be sent."
+                  
+                  sleep 0.5
+                  establish_actions_connection
+                end
+              end until write_successful
+              
               # If it's "causal event" action, we must wait here until it's fully responded
               next_action.response if next_action.has_causal_events?
             end
           rescue => e
-            p e
+            ahn_log.ami.error "ENCOUNTERED AN UNEXPECTED EXCEPTION IN THE AMI WRITE LOOP!"
+          end
+          
+          def check_connection
+            
           end
           
           ##

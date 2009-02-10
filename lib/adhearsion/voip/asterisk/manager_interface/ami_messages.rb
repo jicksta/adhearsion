@@ -10,7 +10,9 @@ module Adhearsion
         # Note: not all responses have an ActionID!
         #
         class ManagerInterfaceResponse
-        
+          
+          include DRbUndumped
+          
           class << self
             def from_immediate_response(text)
               returning new do |instance|
@@ -45,7 +47,7 @@ module Adhearsion
           end
           
         end
-      
+        
         class ManagerInterfaceError < Exception
           
           attr_accessor :message

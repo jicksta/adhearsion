@@ -342,6 +342,7 @@ module Adhearsion
           end
         end
         
+        ##
         # This method is used to receive keypad input from the user. Digits are collected
         # via DTMF (keypad) input until one of three things happens:
         #
@@ -372,6 +373,7 @@ module Adhearsion
       	# Note that when you don't specify a digit limit, the :accept_key becomes "#"
       	# because there'd be no other way to end the collection of digits. You can
       	# obviously override this by passing in a new key with :accept_key.
+      	#
         def input(*args)
           options = args.last.kind_of?(Hash) ? args.pop : {}
           number_of_digits = args.shift
