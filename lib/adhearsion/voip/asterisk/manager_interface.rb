@@ -400,15 +400,17 @@ module Adhearsion
                   ahn_log.ami.error "Encountered an error writing a #{next_action.name} action. Trying to reconnect with #{@write_queue.size} other events waiting to be sent."
                   
                   sleep 0.5
+                  p @actions_connection
                   establish_actions_connection
+                  p @actions_connection
                 end
               end until write_successful
               
               # If it's "causal event" action, we must wait here until it's fully responded
               next_action.response if next_action.has_causal_events?
             end
-          rescue => e
-            ahn_log.ami.error "ENCOUNTERED AN UNEXPECTED EXCEPTION IN THE AMI WRITE LOOP!"
+          rescue => error
+            ahn_log.ami.error "ENCOUNTERED AN UNEXPECTED EXCEPTION IN THE AMI WRITE LOOP! #{error} ", *error.backtrace
           end
           
           def check_connection

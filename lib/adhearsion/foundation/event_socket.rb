@@ -108,11 +108,11 @@ class EventSocket
   # @return [true,false] Returns true if successful or false if an exception occurred.
   #
   def send_data(data)
+    return false unless state.equal?(:connected)
     # Note: TCPSocket#write is intrinsically Thread-safe
     @socket.write data
-    true
+    state.equal? :connected # Return false if there was a disconnect during the write. true otherwise
   rescue Exception => exception
-    puts "DRopped! #{exception}"
     connection_dropped!
     false
   end
