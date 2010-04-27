@@ -1,7 +1,7 @@
 Repo Deprecation Warning
 ========================
 
-This is no longer the official repository for the Adhearsion project. The official source code repository is now located at [http://github.com/adhearsion/adhearsion]http://github.com/adhearsion/adhearsion. Please watch that repository going forward.
+This is no longer the official repository for the Adhearsion project. The official source code repository is now located at [http://github.com/adhearsion/adhearsion](http://github.com/adhearsion/adhearsion). Please watch that repository going forward.
 
 Adhearsion
 ==========
