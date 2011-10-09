@@ -20,6 +20,7 @@
 ##
 # Here is a list of the events included by default:
 #
+# - events.exception
 # - events.asterisk.manager_interface
 # - events.after_initialized
 # - events.shutdown

@@ -10,7 +10,6 @@ module Adhearsion
       end
 
       def method_missing(match_payload, *patterns, &block)
-        name_string = match_payload.to_s
         if patterns.any?
           patterns.each do |pattern|
             @patterns << MatchCalculator.build_with_pattern(pattern, match_payload)
@@ -46,7 +45,7 @@ module Adhearsion
       end
 
       def calculate_matches_for(result)
-        returning CalculatedMatchCollection.new do |collection|
+        CalculatedMatchCollection.new.tap do |collection|
           weighted_match_calculators.each do |pattern|
             collection << pattern.match(result)
           end

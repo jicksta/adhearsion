@@ -3,7 +3,7 @@
 # meet Adhearsion's quality standards.
 module Adhearsion
   module CustomDaemonizer
-  
+
     # Try to fork if at all possible retrying every 5 sec if the
     # maximum process limit for the system has been reached
     def safefork
@@ -38,7 +38,7 @@ module Adhearsion
 
       STDIN.reopen "/dev/null"
       STDOUT.reopen '/dev/null', "a"
-      STDERR.reopen log_file 
+      STDERR.reopen log_file, "a"
       return oldmode ? sess_id : 0
     end
   end

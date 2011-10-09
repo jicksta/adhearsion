@@ -2,9 +2,9 @@
 
 module Adhearsion
   class Initializer
-    
+
     class DatabaseInitializer
-      
+
       class << self
 
         def start
@@ -14,6 +14,10 @@ module Adhearsion
           # You may need to uncomment the following line for older versions of ActiveRecord
           # ActiveRecord::Base.allow_concurrency = true
           establish_connection
+          ActiveRecord::Base.logger =
+            @@config.connection_options.has_key?(:logger) ?
+              @@config.connection_options[:logger] :
+              ahn_log.db
           create_call_hook_for_connection_cleanup
         end
 
@@ -30,7 +34,13 @@ module Adhearsion
         end
 
         def require_dependencies
-          require 'active_record'
+          begin
+            require 'active_record'
+          rescue LoadError
+            ahn_log.fatal "Database support requires the \"activerecord\" gem."
+            # Silence the abort so we don't get an ugly backtrace
+            abort ""
+          end
         end
 
         def require_models
@@ -38,13 +48,13 @@ module Adhearsion
             load model
           end
         end
-        
+
         def establish_connection
           ActiveRecord::Base.establish_connection @@config.connection_options
         end
 
       end
     end
-    
+
   end
 end

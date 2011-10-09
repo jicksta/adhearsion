@@ -3,3 +3,11 @@ pkg
 *~
 .*.sw?
 .yardoc
+nbproject
+vendor
+Gemfile.lock
+.bundle
+.rvmrc
+coverage
+spec/reports
+doc
