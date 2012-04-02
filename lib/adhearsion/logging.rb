@@ -1,110 +1,136 @@
-require 'log4r'
+# encoding: utf-8
+
+require 'logging'
 
 module Adhearsion
   module Logging
 
-    @@logging_level_lock = Mutex.new
+    LOG_LEVELS = %w(TRACE DEBUG INFO WARN ERROR FATAL)
+
+    METHOD = :logger
 
     class << self
 
+      ::Logging.color_scheme 'bright',
+        :levels => {
+          :debug => :magenta,
+          :info  => :green,
+          :warn  => :yellow,
+          :error => :red,
+          :fatal => [:white, :on_red]
+        },
+        :date     => [:bold, :blue],
+        :logger   => :cyan
+
+      def adhearsion_pattern
+        '[%d] %-5l %c: %m\n'
+      end
+
+      # Silence Adhearsion's logging, printing only FATAL messages
       def silence!
         self.logging_level = :fatal
       end
 
+      # Restore the default configured logging level
       def unsilence!
-        self.logging_level = :info
+        self.logging_level = Adhearsion.config.platform.logging['level']
+      end
+
+      # Toggle between the configured log level and :trace
+      # Useful for debugging a live Adhearsion instance
+      def toggle_trace!
+        if level == ::Logging.level_num(Adhearsion.config.platform.logging['level'])
+          logger.warn "Turning TRACE logging ON."
+          self.level = :trace
+        else
+          logger.warn "Turning TRACE logging OFF."
+          self.level = Adhearsion.config.platform.logging['level']
+        end
+      end
+
+      # Close logfiles and reopen them.  Useful for log rotation.
+      def reopen_logs
+        logger.info "Closing logfiles."
+        ::Logging.reopen
+        logger.info "Logfiles reopened."
+      end
+
+      def init
+        ::Logging.init LOG_LEVELS
+
+        LOG_LEVELS.each do |level|
+          Adhearsion::Logging.const_defined?(level) or Adhearsion::Logging.const_set(level, ::Logging::LEVELS[::Logging.levelify(level)])
+        end
+      end
+
+      def start(_appenders = nil, level = :info, formatter = nil)
+        ::Logging.logger.root.appenders = _appenders.nil? ? default_appenders : _appenders
+
+        ::Logging.logger.root.level = level
+
+        formatter = formatter if formatter
+      end
+
+      def default_appenders
+        [::Logging.appenders.stdout(
+           'stdout',
+           :layout => ::Logging.layouts.pattern(
+             :pattern => adhearsion_pattern,
+             :color_scheme => 'bright'
+           ),
+           :auto_flushing => 2,
+           :flush_period => 2
+         )]
       end
 
       def logging_level=(new_logging_level)
-        new_logging_level = Log4r.const_get(new_logging_level.to_s.upcase)
-        @@logging_level_lock.synchronize do
-          @@logging_level = new_logging_level
-          Log4r::Logger.each_logger do |logger|
-            logger.level = new_logging_level
-          end
-        end
+        ::Logging.logger.root.level = new_logging_level
       end
+
       alias :level= :logging_level=
 
-      def logging_level(level = nil)
-        return self.logging_level= level unless level.nil?
-        @@logging_level_lock.synchronize do
-          return @@logging_level ||= Log4r::INFO
-        end
+      def logging_level
+        ::Logging.logger.root.level
       end
+
+      def get_logger(logger_name)
+        ::Logging::Logger[logger_name]
+      end
+
       alias :level :logging_level
+
+      def sanitized_logger_name(name)
+        name.to_s.gsub(/\W/, '').downcase
+      end
+
+      def outputters=(outputters)
+        ::Logging.logger.root.appenders = outputters
+      end
+
+      alias :appenders= :outputters=
+
+      def outputters
+        ::Logging.logger.root.appenders
+      end
+
+      alias :appenders :outputters
+
+      def formatter=(formatter)
+        ::Logging.logger.root.appenders.each do |appender|
+          appender.layout = formatter
+        end
+      end
+
+      alias :layout= :formatter=
+
+      def formatter
+        ::Logging.logger.root.appenders.first.layout
+      end
+
+      alias :layout :formatter
+
     end
 
-    class AdhearsionLogger < Log4r::Logger
-
-      @@outputters = [Log4r::Outputter.stdout]
-
-      class << self
-        def sanitized_logger_name(name)
-          name.to_s.gsub(/\W/, '').downcase
-        end
-
-        def outputters
-          @@outputters
-        end
-
-        def outputters=(other)
-          @@outputters = other
-        end
-
-        def formatters
-          @@outputters.map &:formatter
-        end
-
-        def formatters=(other)
-          other.each_with_index do |formatter, i|
-            outputter = @@outputters[i]
-            outputter.formatter = formatter if outputter
-          end
-        end
-      end
-
-      def initialize(*args)
-        super
-        redefine_outputters
-      end
-
-      def redefine_outputters
-        self.outputters = @@outputters
-      end
-
-      def method_missing(logger_name, *args, &block)
-        define_logging_method logger_name, self.class.new(logger_name.to_s)
-        send self.class.sanitized_logger_name(logger_name), *args, &block
-      end
-
-      private
-
-      def define_logging_method(name, logger)
-        # Can't use Module#define_method() because blocks in Ruby 1.8.x can't
-        # have their own block arguments.
-        self.class.class_eval(<<-CODE, __FILE__, __LINE__)
-          def #{self.class.sanitized_logger_name name}(*args, &block)
-            logger = Log4r::Logger['#{name}']
-            if args.any? || block_given?
-              logger.info(*args, &block)
-            else
-              logger
-            end
-          end
-        CODE
-      end
-    end
-
-    DefaultAdhearsionLogger = AdhearsionLogger.new 'ahn'
-
-  end
-end
-
-def ahn_log(*args)
-  if args.any?
-    Adhearsion::Logging::DefaultAdhearsionLogger.info(*args)
-  else
-    Adhearsion::Logging::DefaultAdhearsionLogger
+    init unless ::Logging.const_defined? :MAX_LEVEL_LENGTH
   end
 end

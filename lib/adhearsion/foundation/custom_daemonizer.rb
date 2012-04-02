@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 # This is largely based on the Daemonize library by Travis Whitton and
 # Judson Lester. http://grub.ath.cx/daemonize. I cleaned it up a bit to
 # meet Adhearsion's quality standards.
@@ -17,20 +19,18 @@ module Adhearsion
     end
 
     # This method causes the current running process to become a daemon
-    def daemonize(log_file='/dev/null')
+    def daemonize(log_file = '/dev/null')
       oldmode = 0
       srand # Split rand streams between spawning and daemonized process
       safefork and exit # Fork and exit from the parent
 
       # Detach from the controlling terminal
-      unless sess_id = Process.setsid
-        raise 'Cannot detach from controlled terminal'
-      end
+      raise 'Cannot detach from controlled terminal' unless sess_id = ::Process.setsid
 
       # Prevent the possibility of acquiring a controlling terminal
       if oldmode.zero?
         trap 'SIGHUP', 'IGNORE'
-        exit if pid = safefork
+        exit if safefork
       end
 
       Dir.chdir "/"   # Release old working directory
@@ -39,7 +39,7 @@ module Adhearsion
       STDIN.reopen "/dev/null"
       STDOUT.reopen '/dev/null', "a"
       STDERR.reopen log_file, "a"
-      return oldmode ? sess_id : 0
+      oldmode ? sess_id : 0
     end
   end
 end
